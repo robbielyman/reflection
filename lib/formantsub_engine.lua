@@ -24,7 +24,7 @@ function formantsub.params()
         type    = "control",
         id      = "hz_to_formant",
         name    = "pitch > formant",
-        controlspec = controlspec.new(0, 100, "lin", 0, 0, "%%"),
+        controlspec = controlspec.new(0, 100, "lin", 0, 100, "%"),
         action  = function(x)
             engine.hzToFormant(x/100)
         end
@@ -69,7 +69,7 @@ function formantsub.params()
         type    = "control",
         id      = "fgain",
         name    = "filter gain",
-        controlspec = controlspec.new(0, 6, "lin", 0, 0, ""),
+        controlspec = controlspec.new(0, 4, "lin", 0, 0, ""),
         action  = engine.fgain
     }
     params:add{

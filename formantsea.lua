@@ -1,9 +1,9 @@
 -- FormantSub based clocked Earthsea
 
-local FormantSub = include("lib/formantsub_engine")
-local Reflection = include("lib/reflection")
-local UI = require("ui")
-local musicutil = require("musicutil")
+FormantSub = include("lib/formantsub_engine")
+Reflection = include("lib/reflection")
+UI = require("ui")
+Musicutil = require("musicutil")
 
 engine.name = "FormantSub"
 
@@ -12,6 +12,7 @@ local Grid = grid.connect()
 MAX_NUM_VOICES = 16
 
 function init()
+    Num_Voices = 0
     Needs_Restart = false
     if not util.file_exists(_path.code .. "/lamination/lamination.lua")
         and not util.file_exists(norns.state.path .. "/bin/FormantTriPTR/FormantTriPTR.sc") then
@@ -32,13 +33,13 @@ function init()
         type    = "option",
         id      = "enc2",
         name    = "enc2",
-        options = {"slope, formant, noise, cut"}
+        options = {"slope", "formant", "noise", "cut"}
     }
     params:add{
         type    = "option",
         id      = "enc3",
         name    = "enc3",
-        options = {"slope, formant, noise, cut"},
+        options = {"slope", "formant", "noise", "cut"},
         default = 2
     }
     params:add_separator("FormantSub")
@@ -60,10 +61,7 @@ function init()
     engine.stopAll()
     params:bang()
     Refresh_Metro = metro.init()
-    Refresh_Metro.event = function()
-        redraw()
-        grid_redraw()
-    end
+    Refresh_Metro.event = grid_redraw
     Refresh_Metro:start(1/15)
     Grid_Presses = {}
     for i = 1, 16 do
@@ -96,7 +94,7 @@ function grid_key(x, y, z)
         end
     else
         local event = {
-            id = x * 16 + y,
+            id = x + y * 16,
             x = x,
             y = y,
             z = z
@@ -108,7 +106,7 @@ function grid_key(x, y, z)
 end
 
 function grid_note(event)
-    local note = ((7 - event.y)*5) + event.x
+    local note = ((10 - event.y)*5) + event.x + 30
     if event.z == 1 then
         if Num_Voices < MAX_NUM_VOICES then
             start_note(event.id, note)
@@ -124,7 +122,7 @@ end
 
 function start_note(id, note)
     if params:get("output") == 1 then
-        engine.start(id, musicutil.note_num_to_freq(note))
+        engine.start(id, Musicutil.note_num_to_freq(note))
     elseif params:get("output") == 2  then
         crow.output[1].volts = note/12
         crow.output[2].execute()
@@ -142,10 +140,11 @@ function grid_redraw()
     for i = 1, 16 do
         for j = 1,8 do
             if Grid_Presses[i][j] == 1 then
-                Grid:led(i,j)
+                Grid:led(i,j,15)
             end
         end
     end
+    Grid:refresh()
 end
 
 function redraw()

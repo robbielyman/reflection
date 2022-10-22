@@ -13,6 +13,7 @@ function reflection.new()
     p.event = {}
     p.time  = {}
     p.step  = 0
+    p.loop = 0
     -- p.time_factor = 1
     p.clock = nil
     p.quantize = 1/48
@@ -93,7 +94,7 @@ function reflection:watch(event)
         if not self.event[s] then
             self.event[s] = {}
         end
-        tab.insert(self.event[s], event)
+        table.insert(self.event[s], event)
     end
 end
 
@@ -137,7 +138,7 @@ function reflection:end_playback()
     end
     self.play = 0
     self.rec = 0
-    if self.endpoint == 0 and #self.event > 0 then
+    if self.endpoint == 0 and next(self.event) then
         self.endpoint = self.step
     end
     self.end_callback()

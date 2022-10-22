@@ -18,8 +18,8 @@ Engine_FormantSub : CroneEngine {
         polyDef = SynthDef.new(\formantSub, {
           arg out, gate = 1, hz, level = 0.2,
           slope = 0.5,
-          formant = 400,
-          hzToFormant = 0,
+          formant = 400.0,
+          hzToFormant = 1.0,
           sub = 0.4,
           noise = 0.0,
           cut = 8.0,
@@ -35,13 +35,15 @@ Engine_FormantSub : CroneEngine {
           detune = Lag.kr(detune);
           slope = Lag.kr(slope);
           formant = Lag.kr(formant);
+          hzToFormant = Lag.kr(hzToFormant);
           fgain = Lag.kr(fgain.min(4.0));
           cut = Lag.kr(cut);
           width = Lag.kr(width);
           detune = detune / 2;
           hz = Lag.kr(hz, hzLag);
           freq = [hz + detune, hz - detune];
-          osc = FormantTriPTR.ar(freq:freq, formant:formant + (0.5 * hzToFormant * hz), width:slope);
+          formant = formant + (hz * hzToFormant);
+          osc = LeakDC.ar(FormantTriPTR.ar(freq:freq, formant:formant, width:slope));
           snd = osc + ((SinOsc.ar(hz / 2) * sub).dup);
           aenv = EnvGen.ar(
             Env.adsr(ampAtk, ampDec, ampSus, ampRel, 1.0, ampCurve),
@@ -61,14 +63,14 @@ Engine_FormantSub : CroneEngine {
         paramDefaults = Dictionary.with(
           \level -> -12.dbamp,
           \slope -> 0.5,
-          \formant -> 400,
-          \hzToFormant -> 0,
+          \formant -> 400.0,
+          \hzToFormant -> 1.0,
           \sub -> 0.4,
           \noise -> 0.0,
           \cut -> 8.0,
           \ampAtk -> 0.05, \ampDec -> 0.1, \ampSus -> 1.0, \ampRel -> 1.0, \ampCurve -> -1.0,
           \cutAtk -> 0.0, \cutDec -> 0.0, \cutSus -> 1.0, \cutRel -> 1.0, \cutCurve -> -1.0,
-          \cutEnvAmt -> 0.0, \fgain -> 4.0, \detune -> 0, \width -> 0.5, \hzLag -> 0.1
+          \cutEnvAmt -> 0.0, \fgain -> 0.0, \detune -> 0, \width -> 0.5, \hzLag -> 0.1
         );
       }
     }
@@ -96,10 +98,10 @@ Engine_FormantSub : CroneEngine {
       ctlBus[\level].setSynchronous(0.2);
 
       this.addCommand(\start, "if", { arg msg;
-        this.addVoice(msg[1], msg[2], true);
+        this.addVoice(msg[1], msg[2], false);
       });
 
-      this.addCommand(\stop, "i" { arg msg;
+      this.addCommand(\stop, "i", { arg msg;
         this.removeVoice(msg[1]);
       });
 
