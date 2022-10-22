@@ -6,7 +6,7 @@ UI = require("ui")
 Musicutil = require("musicutil")
 
 local extensions = "/home/we/.local/share/SuperCollider/Extensions"
-engine.name = util.file_exists(extensions .. "/FormantTriPTR/FormantTriPTR.sc") and "FormantSub" or ""
+engine.name = util.file_exists(extensions .. "/FormantTriPTR/FormantTriPTR.sc") and "FormantSub" or nil
 
 local Grid = grid.connect()
 
