@@ -5,7 +5,8 @@ Reflection = include("lib/reflection")
 UI = require("ui")
 Musicutil = require("musicutil")
 
-engine.name = "FormantSub"
+local extensions = "/home/we/.local/share/SuperCollider/Extensions"
+engine.name = util.file_exists(extensions .. "/FormantTriPTR/FormantTriPTR.sc") and "FormantSub" or nil
 
 local Grid = grid.connect()
 
@@ -14,7 +15,6 @@ MAX_NUM_VOICES = 16
 function init()
     Num_Voices = 0
     Needs_Restart = false
-    local extensions = "/home/we/.local/share/SuperCollider/Extensions"
     local formanttri_files = {"FormantTriPTR.sc", "FormantTriPTR_scsynth.so"}
     for _,file in pairs(formanttri_files) do
         if not util.file_exists(extensions .. "/FormantTriPTR/" .. file) then
