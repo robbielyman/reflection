@@ -14,15 +14,14 @@ MAX_NUM_VOICES = 16
 function init()
     Num_Voices = 0
     Needs_Restart = false
-    if not util.file_exists(_path.code .. "/lamination/lamination.lua")
-        and not util.file_exists(norns.state.path .. "/bin/FormantTriPTR/FormantTriPTR.sc") then
-        util.os_capture("cp " .. norns.state.path .. "/ignore/FormantTriPTR/FormantTriPTR.sc " .. norns.state.path .. "/bin/FormantTriPTR/FormantTriPTR.sc")
-        Needs_Restart = true
-    end
-    if not util.file_exists("/home/we/.local/share/SuperCollider/Extensions/FormantTriPTR/FormantTriPTR_scsynth.so") then
-        util.os_capture("mkdir /home/we/.local/share/SuperCollider/Extensions/FormantTriPTR")
-        util.os_capture("cp " .. norns.state.path .. "/bin/FormantTriPTR/FormantTriPTR_scsynth.so /home/we/.local/share/SuperCollider/Extensions/FormantTriPTR/FormantTriPTR_scsynth.so")
-        Needs_Restart = true
+    local extensions = "/home/we/.local/share/SuperCollider/Extensions"
+    local formanttri_files = {"FormantTriPTR.sc", "FormantTriPTR_scsynth.so"}
+    for _,file in pairs(formanttri_files) do
+        if not util.file_exists(extensions .. "/FormantTriPTR/" .. file) then
+            util.os_capture("mkdir " .. extensions .. "/FormantTriPTR")
+            util.os_capture("cp " .. norns.state.path .. "/ignore/" .. file .. " " .. extensions .. "/FormantTriPTR/" .. file)
+            Needs_Restart = true
+        end
     end
     Restart_Message = UI.Message.new{"please restart norns"}
     Grid.key = grid_key
