@@ -20,6 +20,7 @@ function init()
         if not util.file_exists(extensions .. "/FormantTriPTR/" .. file) then
             util.os_capture("mkdir " .. extensions .. "/FormantTriPTR")
             util.os_capture("cp " .. norns.state.path .. "/ignore/" .. file .. " " .. extensions .. "/FormantTriPTR/" .. file)
+            print("installed " .. file)
             Needs_Restart = true
         end
     end
@@ -42,27 +43,16 @@ function init()
         default = 2
     }
     params:add_separator("FormantSub")
-    FormantSub.params()
-    params:add{
-        type    = "option",
-        id      = "output",
-        name    = "output",
-        options = {"audio", "crow out 1+2", "crow ii JF"},
-        action  = function(x)
-            engine.stopAll()
-            if x == 2 then crow.output[2].action = "{to(5,0),to(0,0.25)}"
-            elseif x == 3 then
-                crow.ii.pullup(true)
-                crow.ii.jf.mode(1)
-            end
-        end
-    }
-    if engine.name then
+    if engine.name ~= "None" then
+        FormantSub.params()
         engine.stopAll()
+        params:bang()
     end
-    params:bang()
     Refresh_Metro = metro.init()
-    Refresh_Metro.event = grid_redraw
+    Refresh_Metro.event = function()
+        redraw()
+        grid_redraw()
+    end
     Refresh_Metro:start(1/15)
     Grid_Presses = {}
     for i = 1, 16 do
@@ -149,9 +139,11 @@ function grid_redraw()
 end
 
 function redraw()
+    screen.clear()
     if Needs_Restart then
         Restart_Message:redraw()
     end
+    screen.update()
 end
 
 function cleanup()
