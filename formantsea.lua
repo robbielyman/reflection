@@ -57,7 +57,9 @@ function init()
             end
         end
     }
-    engine.stopAll()
+    if engine.name then
+        engine.stopAll()
+    end
     params:bang()
     Refresh_Metro = metro.init()
     Refresh_Metro.event = grid_redraw
