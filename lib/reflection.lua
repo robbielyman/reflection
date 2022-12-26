@@ -15,6 +15,7 @@ function reflection.new()
   p.loop = 0
   -- p.time_factor = 1
   p.clock = nil
+  p.rec_dur = nil
   p.quantize = 1/48
   p.endpoint = 0
   p.start_callback = function() end
@@ -24,12 +25,13 @@ function reflection.new()
 end
 
 --- start transport
-function reflection:start()
+function reflection:start(quantization)
+  quantization = quantization or self.quantize
   if self.clock then
     clock.cancel(self.clock)
   end
   self.clock = clock.run(function()
-    clock.sync(self.quantize)
+    clock.sync(quantization)
     self:begin_playback()
   end)
 end
@@ -46,9 +48,22 @@ function reflection:stop()
 end
 
 --- enable / disable record head
--- @tparam number rec 1 for recording or 0 for not recording
-function reflection:set_rec(rec)
-  self.rec = rec == 0 and 0 or 1
+-- @tparam number rec 1 for recording, 2 for queued recording or 0 for not recording
+-- @tparam number dur (optional) duration in beats for recording
+function reflection:set_rec(rec, dur)
+  self.rec = rec == 1 and 1 or 0
+  if rec == 1 and dur then self.rec_dur = dur end
+  if rec == 2 then
+    local fn = self.start_callback
+    self.start_callback = function()
+      -- on next data pass, enable recording,
+      self:set_rec(1, dur)
+      -- call our callback
+      fn()
+      -- and restore the state of the callback
+      self.start_callback = fn
+    end
+  end
   if self.rec == 0 then self:_clear_flags() end
 end
 
@@ -110,27 +125,33 @@ function reflection:begin_playback()
       clock.sync(1/96)
       self.step = self.step + 1
       local q = math.floor(96 * self.quantize)
-      repeat
-        if self.step % q ~= 1 then break end
-        if self.endpoint == 0 then break end -- don't process on first pass
-        for i = q - 1, 0, - 1 do
-          if self.event[self.step - i] and next(self.event[self.step - i]) then
-            for j = 1, #self.event[self.step - i] do
-              local event = self.event[self.step - i][j]
-              if not event._flag then self.process(event) end
-            end
+      if self.step % q ~= 1 then goto continue end
+      if self.endpoint == 0 then goto continue end -- don't process on first pass
+      for i = q - 1, 0, - 1 do
+        if self.event[self.step - i] and next(self.event[self.step - i]) then
+          for j = 1, #self.event[self.step - i] do
+            local event = self.event[self.step - i][j]
+            if not event._flag then self.process(event) end
           end
         end
-        if self.step >= self.endpoint then
-          if self.loop == 0 then
-            self:end_playback()
-          elseif self.loop == 1 then
-            self.step = self.step - self.endpoint
-            self:_clear_flags()
-            self:start_callback()
-          end
+      end
+      if self.rec_dur then
+        self.rec_dur = self.rec_dur - 1/96
+        if self.rec_dur > 0 then goto continue end
+        self:set_rec(0)
+        -- as a convenience, if this was our first pass, stop playback
+        if self.endpoint == 0 then self:end_playback() return end
+      end
+      ::continue::
+      if self.step >= self.endpoint then
+        if self.loop == 0 then
+          self:end_playback()
+        elseif self.loop == 1 then
+          self.step = self.step - self.endpoint
+          self:_clear_flags()
+          self:start_callback()
         end
-      until (true)
+      end
     end
   end)
 end
@@ -158,6 +179,32 @@ function reflection:_clear_flags()
       end
     end
   end
+end
+
+local function deep_copy(tbl)
+  local ret = {}
+  if type(tbl) ~= 'table' then return tbl end
+  for key, value in pairs(tbl) do
+    ret[key] = deep_copy(value)
+  end
+  return ret
+end
+
+--- copy data from one reflection to another
+-- @tparam table to reflection to copy to
+-- @tparam table from reflection to copy from
+function reflection.copy(to, from)
+  to.event = deep_copy(from.event)
+  to.endpoint = from.endpoint
+end
+
+--- doubles the current loop
+function reflection:double()
+  local copy = deep_copy(self.event)
+  for i = 1, self.endpoint do
+    self.event[self.endpoint + i] = copy[i]
+  end
+  self.endpoint = self.endpoint * 2
 end
 
 return reflection
