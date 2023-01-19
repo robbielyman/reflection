@@ -80,13 +80,6 @@ function init()
   end
 end
 
-function toggle_record()
-  Narcissus:set_rec(Narcissus.rec == 0 and 1 or 0, 5)
-  if Narcissus.rec == 1 and Narcissus.endpoint == 0 then
-    Narcissus:start()
-  end
-end
-
 function grid_key(x, y, z)
   if x == 1 then
     if z == 1 then
