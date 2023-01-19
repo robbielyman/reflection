@@ -121,7 +121,6 @@ function reflection:watch(event)
     if not self.event[s] then
       self.event[s] = {}
     end
-    print(s)
     local current_size = #self.event[s] + 1
     self.event[s][current_size] = event
     self.count = self.count + 1
