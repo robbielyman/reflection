@@ -121,8 +121,7 @@ function reflection:watch(event)
     if not self.event[s] then
       self.event[s] = {}
     end
-    local current_size = #self.event[s] + 1
-    self.event[s][current_size] = event
+    table.insert(self.event[s], event)
     self.count = self.count + 1
   end
 end
