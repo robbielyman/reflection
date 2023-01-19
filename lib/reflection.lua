@@ -12,9 +12,10 @@ function reflection.new()
   p.play  = 0
   p.event = {}
   p.step  = 0
+  p.count = 0
   p.loop = 0
-  -- p.time_factor = 1
   p.clock = nil
+  p.queued_rec  = nil
   p.rec_dur = nil
   p.quantize = 1/48
   p.endpoint = 0
@@ -52,16 +53,26 @@ end
 -- @tparam number dur (optional) duration in beats for recording
 function reflection:set_rec(rec, dur)
   self.rec = rec == 1 and 1 or 0
+  self.queued_rec = nil
+  -- if standard rec flag is enabled but play isn't,
+  --   then we should start playing, yeah?
+  if rec == 1 and self.play == 0 then
+    self:start()
+  end
   if rec == 1 and dur then self.rec_dur = dur end
   if rec == 2 then
-    local fn = self.start_callback
-    self.start_callback = function()
-      -- on next data pass, enable recording,
-      self:set_rec(1, dur)
-      -- call our callback
-      fn()
-      -- and restore the state of the callback
-      self.start_callback = fn
+    if self.count > 0 then
+      local fn = self.start_callback
+      self.start_callback = function()
+        -- on next data pass, enable recording,
+        self:set_rec(1)
+        -- call our callback
+        fn()
+        -- and restore the state of the callback
+        self.start_callback = fn
+      end
+    else
+      self.queued_rec = {state = true, duration = dur}
     end
   end
   if self.rec == 0 then self:_clear_flags() end
@@ -81,12 +92,6 @@ function reflection:set_quantization(q)
   self.quantize = q == nil and 1/48 or q
 end
 
--- --- set time factor
--- -- @tparam float f time factor (positive)
--- function reflection:set_time_factor(f)
---     self.time_factor = f == nil and 1 or f
--- end
-
 --- reset
 function reflection:clear()
   if self.clock then
@@ -96,20 +101,30 @@ function reflection:clear()
   self.play   = 0
   self.event  = {}
   self.step   = 0
-  -- self.time_factor = 1
+  self.count  = 0
   self.quantize = 1/48
   self.endpoint = 0
+  self.queued_rec = nil
 end
 
 --- watch
 function reflection:watch(event)
-  if self.rec == 1 and self.play == 1 then
+  local step_one = false
+  if self.queued_rec ~= nil then
+    self:set_rec(1,self.queued_rec.duration)
+    self.queued_rec = nil
+    step_one = true
+  end
+  if (self.rec == 1 and self.play == 1) or step_one then
     event._flag = true
-    local s = math.floor(self.step)
+    local s = math.floor(step_one == true and 1 or self.step)
     if not self.event[s] then
       self.event[s] = {}
     end
-    table.insert(self.event[s], event)
+    print(s)
+    local current_size = #self.event[s] + 1
+    self.event[s][current_size] = event
+    self.count = self.count + 1
   end
 end
 
@@ -125,39 +140,55 @@ function reflection:begin_playback()
       clock.sync(1/96)
       self.step = self.step + 1
       local q = math.floor(96 * self.quantize)
-      if self.step % q ~= 1 then goto continue end
-      if self.endpoint == 0 then goto continue end -- don't process on first pass
-      for i = q - 1, 0, - 1 do
-        if self.event[self.step - i] and next(self.event[self.step - i]) then
-          for j = 1, #self.event[self.step - i] do
-            local event = self.event[self.step - i][j]
-            if not event._flag then self.process(event) end
+      if self.endpoint == 0 then
+        -- don't process on first pass
+        if self.rec_dur then
+          self.rec_dur = self.rec_dur - 1/96
+          if self.rec_dur < 0 then
+            self:set_rec(0)
+            self:end_playback(true)
+            self.rec_dur = nil
+            if self.loop == 1 then
+              self.start_callback()
+              self.step = 0
+              self.play = 1
+            end
           end
         end
-      end
-      if self.rec_dur then
-        self.rec_dur = self.rec_dur - 1/96
-        if self.rec_dur > 0 then goto continue end
-        self:set_rec(0)
-        -- as a convenience, if this was our first pass, stop playback
-        if self.endpoint == 0 then self:end_playback() return end
-      end
-      ::continue::
-      if self.step >= self.endpoint then
-        if self.loop == 0 then
-          self:end_playback()
-        elseif self.loop == 1 then
-          self.step = self.step - self.endpoint
-          self:_clear_flags()
-          self:start_callback()
+      else
+        if self.step % q ~= 1 then goto continue end
+        for i = q - 1, 0, - 1 do
+          if self.event[self.step - i] and next(self.event[self.step - i]) then
+            for j = 1, #self.event[self.step - i] do
+              local event = self.event[self.step - i][j]
+              if not event._flag then self.process(event) end
+            end
+          end
+        end
+        if self.rec_dur then
+          self.rec_dur = self.rec_dur - 1/96
+          if self.rec_dur > 0 then goto continue end
+          self:set_rec(0)
+          -- as a convenience, if this was our first pass, stop playback
+          if self.endpoint == 0 then self:end_playback() return end
+        end
+        ::continue::
+        if self.count > 0 and self.step >= self.endpoint then
+          if self.loop == 0 then
+            self:end_playback()
+          elseif self.loop == 1 then
+            self.step = self.step - self.endpoint
+            self:_clear_flags()
+            self:start_callback()
+          end
         end
       end
     end
   end)
 end
 
-function reflection:end_playback()
-  if self.clock then
+function reflection:end_playback(silent)
+  if self.clock and not silent then
     clock.cancel(self.clock)
   end
   self.play = 0
