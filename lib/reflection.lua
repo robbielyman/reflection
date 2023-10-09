@@ -127,9 +127,6 @@ function reflection:watch(event)
 end
 
 function reflection:begin_playback()
-  if self.clock then
-    clock.cancel(self.clock)
-  end
   self.step = 0
   self.play = 1
   self.clock = clock.run(function()
@@ -188,6 +185,7 @@ end
 function reflection:end_playback(silent)
   if self.clock and not silent then
     clock.cancel(self.clock)
+    self.clock = nil
   end
   self.play = 0
   self.rec = 0
